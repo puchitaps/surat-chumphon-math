@@ -22,3 +22,6 @@ inspect_data.py
 
 # Local agent skills (impeccable, downloaded docs-only — not part of the site)
 .claude/
+
+# impeccable direction contract: development-only, must not be served by GitHub Pages
+.impeccable/surfaces/
