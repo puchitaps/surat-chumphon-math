@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-12T00:00:00Z",
+  "title": "Design System: ป้ายทางหลวง",
+  "extensions": {
+    "colorMeta": {
+      "sign-green": { "role": "primary", "displayName": "เขียวป้ายทางหลวง", "tonalRamp": ["#00281d", "#003d2c", "#00513b", "#006a4e", "#2f8a6c", "#7fb8a2", "#dcebe4", "#f1f7f4"] },
+      "sign-yellow": { "role": "secondary", "displayName": "เหลืองป้าย (ตัวเลือกตอนนี้เท่านั้น)", "tonalRamp": ["#4d3a00", "#7a5c00", "#b38600", "#e6ad00", "#ffc20e", "#ffd24d", "#ffe38f", "#fff4d1"] },
+      "verge-ground": { "role": "neutral", "displayName": "พื้นไหล่ทาง" },
+      "strike-red": { "role": "neutral", "displayName": "แดงขีดฆ่า (ถูกเลือกไปแล้ว)" },
+      "taken-grey": { "role": "neutral", "displayName": "เทาถูกเลือก (หมุดแผนที่)" }
+    },
+    "shadows": [
+      { "name": "sign-keyline", "value": "inset 0 0 0 5px #006a4e, inset 0 0 0 7px #fff", "purpose": "ขอบขาวด้านในของป้ายใหญ่ ไม่ใช่เงา" },
+      { "name": "alt-keyline", "value": "inset 0 0 0 4px #006a4e, inset 0 0 0 6px #fff", "purpose": "ขอบขาวด้านในของป้ายสำรอง" }
+    ],
+    "motion": [
+      { "name": "sign-flip", "value": "translateY(-10px)→0, opacity .25→1, .32s cubic-bezier(.2,.8,.2,1)", "purpose": "ป้ายใหญ่พลิกไปตัวเลือกถัดไป ปิดเมื่อ prefers-reduced-motion" },
+      { "name": "chevron", "value": "transform .2s", "purpose": "ลูกศรเปิดรายละเอียด ปิดเมื่อ reduced motion" }
+    ],
+    "breakpoints": [
+      { "name": "sign-row", "value": "560px" },
+      { "name": "wide", "value": "720px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "ป้ายใหญ่", "kind": "custom", "refersTo": "sign",
+      "description": "ตัวเลือกตอนนี้: โล่ ชื่อ กม. และปุ่มเหลือง",
+      "html": "<div class=\"ds-sign\"><span class=\"ds-shield\"><small>ที่</small><b>9</b></span><div><h2>ศรียาภัย</h2><p>อ.เมืองชุมพร · ขนาดใหญ่พิเศษ</p><button class=\"ds-btn-yellow\">ถูกเลือกไปแล้ว</button></div><div class=\"ds-km\"><b>0.8</b><small>กม.</small></div></div>",
+      "css": ".ds-sign{display:grid;grid-template-columns:auto 1fr auto;gap:14px;align-items:center;background:#006a4e;color:#fff;border-radius:12px;padding:17px 19px 19px;box-shadow:inset 0 0 0 5px #006a4e,inset 0 0 0 7px #fff;font-family:Sarabun,sans-serif}.ds-sign h2{margin:0;font-size:26px;font-weight:800;line-height:1.35}.ds-sign p{margin:0 0 12px;font-size:15px;color:#e3f1ea}.ds-shield{display:inline-flex;flex-direction:column;align-items:center;background:#fff;color:#006a4e;border-radius:6px 6px 22px 22px;min-width:58px;padding:4px 6px 9px}.ds-shield small{font-size:12px;font-weight:600}.ds-shield b{font-size:32px;font-weight:800;line-height:1}.ds-km{text-align:right;font-variant-numeric:tabular-nums}.ds-km b{display:block;font-size:34px;font-weight:800;line-height:1}.ds-km small{font-size:13px}.ds-btn-yellow{min-height:44px;padding:8px 14px;border:0;border-radius:6px;background:#ffc20e;color:#1b1b1b;font:800 15px Sarabun,sans-serif;cursor:pointer}.ds-btn-yellow:hover{background:#ffd24d}.ds-btn-yellow:focus-visible{outline:3px solid #fff;outline-offset:2px}"
+    },
+    {
+      "name": "แถบระยะทาง", "kind": "custom",
+      "description": "สเกลคงที่ 0–90 กม. ขีดที่ 30/60",
+      "html": "<div class=\"ds-kmbar\"><i style=\"width:45.6%\"></i></div>",
+      "css": ".ds-kmbar{position:relative;height:6px;background:#dcebe4;border-radius:3px;color:#1b1b1b}.ds-kmbar i{position:absolute;inset:0 auto 0 0;background:#006a4e;border-radius:3px}.ds-kmbar::after{content:\"\";position:absolute;inset:-2px 0;background:linear-gradient(90deg,transparent calc(33.333% - 1px),currentColor calc(33.333% - 1px) 33.333%,transparent 33.333% calc(66.666% - 1px),currentColor calc(66.666% - 1px) 66.666%,transparent 66.666%);opacity:.45}"
+    },
+    {
+      "name": "ปุ่มเส้น", "kind": "button", "refersTo": "button-line",
+      "description": "ปุ่มบนพื้นขาว; aria-pressed เป็นพื้นแดง",
+      "html": "<button class=\"ds-btn-line\">ถูกเลือกไปแล้ว</button>",
+      "css": ".ds-btn-line{min-height:44px;padding:8px 14px;border:2px solid #006a4e;border-radius:6px;background:#fff;color:#006a4e;font:800 15px Sarabun,sans-serif;cursor:pointer}.ds-btn-line:hover{background:#dcebe4}.ds-btn-line:focus-visible{outline:3px solid #1b1b1b;outline-offset:2px}.ds-btn-line[aria-pressed=true]{background:#c8102e;border-color:#c8102e;color:#fff}"
+    },
+    {
+      "name": "ป้าย ไม่ยืนยัน", "kind": "chip",
+      "description": "ชิปเตือนข้อมูลที่ยังไม่ยืนยัน",
+      "html": "<span class=\"ds-unverified\">ไม่ยืนยัน</span>",
+      "css": ".ds-unverified{display:inline-block;padding:0 7px;border:1px solid #e5b9a3;border-radius:4px;background:#fdf0e8;color:#8f3a17;font:600 13px/1.6 Sarabun,sans-serif;white-space:nowrap}"
+    }
+  ],
+  "narrative": {
+    "northStar": "เลือกโรงเรียนคือเลือกถนน",
+    "keyCharacteristics": [
+      "ป้ายเขียวขอบขาวด้านใน (วาดบนตัวป้ายเอง ไม่ใช่กล่องซ้อนกล่อง)",
+      "ระยะทางมาก่อนชื่อในลำดับสายตา ด้วยตัวเลขตาราง (tabular-nums)",
+      "เหลือง = ตัวเลือกตอนนี้เท่านั้น",
+      "แถบระยะทางสเกลเดียว 0–90 กม. ทุกที่"
+    ],
+    "rules": [
+      { "name": "The Yellow Is Now Rule", "body": "สีเหลืองหมายถึง \"ตัวเลือกตอนนี้\" อย่างเดียว ห้ามใช้เป็นสีเน้นทั่วไป หัวข้อ หรือของตกแต่ง", "section": "colors" },
+      { "name": "The Keyline Rule", "body": "ขอบขาวของป้ายวาดเป็นวงแหวน inset บนตัวป้าย ไม่ทำเป็นกล่องซ้อนกล่อง", "section": "elevation" }
+    ]
+  }
+}
