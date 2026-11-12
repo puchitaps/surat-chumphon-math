@@ -40,13 +40,16 @@
   // ── state ──────────────────────────────────────────────────────
   const order = [...RANKINGS].sort((a, b) => a.rank - b.rank).map((r) => r.school_id);
   const rankingFor = (id) => RANKINGS.find((r) => r.school_id === id);
-  let taken = new Set();
+  const confirmed = new Set(
+    (typeof CONFIRMED_TAKEN !== "undefined" ? CONFIRMED_TAKEN : []).filter((id) => byId(id))
+  );
+  let taken = new Set(confirmed);
   try {
     const saved = JSON.parse(localStorage.getItem(STORE_KEY) || "[]");
-    if (Array.isArray(saved)) taken = new Set(saved.filter((id) => byId(id)));
+    if (Array.isArray(saved)) saved.filter((id) => byId(id)).forEach((id) => taken.add(id));
   } catch { /* storage unavailable: start empty */ }
   function save() {
-    try { localStorage.setItem(STORE_KEY, JSON.stringify([...taken])); } catch { /* ignore */ }
+    try { localStorage.setItem(STORE_KEY, JSON.stringify([...taken].filter((id) => !confirmed.has(id)))); } catch { /* ignore */ }
   }
   const free = () => order.filter((id) => !taken.has(id));
 
@@ -144,7 +147,9 @@
           <div><h4>ข้อเสีย</h4><ul>${r.cons.map((c) => `<li>${rich(c)}</li>`).join("")}</ul></div>
         </div>` : ""}
       <div class="links">
-        <button class="btn btn-line" type="button" data-take="${s.id}" aria-pressed="${taken.has(s.id)}">${taken.has(s.id) ? "ยกเลิก: ยังว่างอยู่" : "ถูกเลือกไปแล้ว"}</button>
+        ${confirmed.has(s.id)
+          ? `<button class="btn btn-line" type="button" disabled>ถูกเลือกไปแล้ว (ยืนยันแล้ว)</button>`
+          : `<button class="btn btn-line" type="button" data-take="${s.id}" aria-pressed="${taken.has(s.id)}">${taken.has(s.id) ? "ยกเลิก: ยังว่างอยู่" : "ถูกเลือกไปแล้ว"}</button>`}
         <button class="btn btn-line" type="button" data-map="${s.id}">ดูบนแผนที่</button>
         ${s.website ? ext(s.website, "เว็บไซต์โรงเรียน") : ""}
         ${s.facebook ? ext(s.facebook, "Facebook") : ""}
@@ -166,7 +171,7 @@
         <button class="school-head" type="button" aria-expanded="${isOpen}" aria-controls="body-${s.id}" data-toggle="${s.id}">
           ${shield(s, true)}
           <div>
-            <h3>${esc(short(s))}${s.id === current ? '<span class="tag-now">ตอนนี้</span>' : ""}${taken.has(s.id) ? '<span class="sr-only"> (ถูกเลือกไปแล้ว)</span>' : ""}</h3>
+            <h3>${esc(short(s))}${s.id === current ? '<span class="tag-now">ตอนนี้</span>' : ""}${confirmed.has(s.id) ? '<span class="tag-taken">ถูกเลือกไปแล้ว</span>' : taken.has(s.id) ? '<span class="sr-only"> (ถูกเลือกไปแล้ว)</span>' : ""}</h3>
             <p>${grp(esc(place(s)), `ขนาด${esc(s.size)}`)}</p>
             ${kmBar(s)}
           </div>
@@ -176,7 +181,7 @@
         <div class="school-body" id="body-${s.id}" ${isOpen ? "" : "hidden"}>${isOpen ? schoolBody(s) : ""}</div>
       </article>`;
     }).join("");
-    document.getElementById("reset").hidden = taken.size === 0;
+    document.getElementById("reset").hidden = taken.size === confirmed.size;
   }
 
   // ── map ────────────────────────────────────────────────────────
@@ -237,6 +242,7 @@
   }
 
   function toggleTaken(id) {
+    if (confirmed.has(id)) return;
     if (taken.has(id)) taken.delete(id); else taken.add(id);
     save();
     renderAll(true);
@@ -273,7 +279,7 @@
         m.openPopup();
       }
     } else {
-      taken.clear();
+      taken = new Set(confirmed);
       save();
       renderAll(true);
     }
