@@ -171,7 +171,7 @@
         <button class="school-head" type="button" aria-expanded="${isOpen}" aria-controls="body-${s.id}" data-toggle="${s.id}">
           ${shield(s, true)}
           <div>
-            <h3>${esc(short(s))}${s.id === current ? '<span class="tag-now">ตอนนี้</span>' : ""}${confirmed.has(s.id) ? '<span class="tag-taken">ถูกเลือกไปแล้ว</span>' : taken.has(s.id) ? '<span class="sr-only"> (ถูกเลือกไปแล้ว)</span>' : ""}</h3>
+            <h3>${esc(short(s))}${s.id === current ? '<span class="tag-now">ตอนนี้</span>' : ""}${taken.has(s.id) ? '<span class="tag-taken">ถูกเลือกไปแล้ว</span>' : ""}</h3>
             <p>${grp(esc(place(s)), `ขนาด${esc(s.size)}`)}</p>
             ${kmBar(s)}
           </div>
