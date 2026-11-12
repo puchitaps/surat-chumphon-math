@@ -43,31 +43,42 @@
     }
   }
 
-  function levelChips(s) {
-    const items = [
-      { key: "lower_secondary", label: "ม.ต้น" },
-      { key: "upper_secondary", label: "ม.ปลาย" },
-    ];
-    return `<div class="lv-grid">${items
-      .map((l) => `<span class="lv ${s[l.key] ? "on" : ""}">${l.label}</span>`)
-      .join("")}</div>`;
+  // Small drawn icon for links that leave the site (replaces the "↗" glyph).
+  const EXT_ICON =
+    `<svg class="ext-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg>`;
+  const extLink = (url, label) =>
+    `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer">${esc(label)}${EXT_ICON}<span class="sr-only"> (เปิดในแท็บใหม่)</span></a>`;
+
+  // Escape, then turn every "ไม่ยืนยัน" into the shared marker so unverified
+  // facts look the same everywhere.
+  function richText(s) {
+    return esc(s)
+      .replace(/\(ไม่ยืนยัน\)/g, "ไม่ยืนยัน")
+      .replace(/ไม่ยืนยัน/g, `<span class="unverified">ไม่ยืนยัน</span>`);
+  }
+
+  function levelsText(s) {
+    if (s.lower_secondary && s.upper_secondary) return "ม.1–6";
+    if (s.lower_secondary) return "ม.1–3";
+    if (s.upper_secondary) return "ม.4–6";
+    return "";
   }
 
   function mapThumb(school) {
     const gm = school.google_map;
     if (!gm || typeof gm.lat !== "number" || typeof gm.lng !== "number") {
-      return `<div class="map-thumb no-coords">ไม่มีข้อมูล</div>`;
+      return `<div class="map-thumb no-coords">ไม่มีพิกัด</div>`;
     }
     const t = tileFromLatLng(gm.lat, gm.lng, 16);
     const tileUrl = `https://tile.openstreetmap.org/${t.z}/${t.x}/${t.y}.png`;
     const pinColor = provincePinColor(school.province);
     return `
-      <a href="${gm.url}" target="_blank" rel="noopener" class="map-thumb" title="เปิดใน Google Maps">
+      <a href="${esc(gm.url)}" target="_blank" rel="noopener" class="map-thumb" aria-label="เปิดตำแหน่ง${esc(school.name)}ใน Google Maps">
         <img src="${tileUrl}" alt="" loading="lazy" />
         <svg class="pin" viewBox="0 0 24 24" style="left:${t.pxPct.toFixed(2)}%;top:${t.pyPct.toFixed(2)}%">
           <circle cx="12" cy="12" r="6" fill="${pinColor}" stroke="#fafaf7" stroke-width="2.5"/>
         </svg>
-        <span class="map-hint">เปิดแผนที่ ↗</span>
+        <span class="map-hint">เปิดใน Google Maps</span>
       </a>
     `;
   }
@@ -77,7 +88,7 @@
       return `<span class="text-ink-muted text-sm">—</span>`;
     }
     return `<div class="src-list">${school.sources
-      .map((s) => `<a href="${s.url}" target="_blank" rel="noopener noreferrer">${tidyLabel(s)} ↗</a>`)
+      .map((s) => extLink(s.url, tidyLabel(s)))
       .join("")}</div>`;
   }
 
@@ -97,153 +108,131 @@
       .replace(/'/g, "&#39;");
   }
 
-  // Numbers first (display-styled), then descriptive long-form.
-  // Order matches the user's spec for the overview cards.
+  // Detail panel: headline numbers first, then descriptive fields.
+  // Array values render as a list.
   const DETAIL_FIELDS = [
-    { key: "student_count",    label: "จำนวนนักเรียน",      style: "display" },
-    { key: "staff_count",      label: "จำนวนครู / บุคลากร",  style: "display" },
-    { key: "size",             label: "ขนาดโรงเรียน" },
+    { key: "student_count",    label: "จำนวนนักเรียน", style: "display", note: (s) => s.students_asof ? `ข้อมูล ${s.students_asof}` : "" },
     { key: "distance",         label: "ระยะทางจากตัวเมือง" },
-    { key: "address",          label: "ที่อยู่" },
+    { key: "staff_count",      label: "จำนวนครู" },
+    { key: "math_teachers",    label: "ครูกลุ่มสาระคณิตศาสตร์" },
     { key: "special_programs", label: "ห้องเรียนพิเศษ / หลักสูตร" },
+    { key: "address",          label: "ที่อยู่" },
+    { key: "awards",           label: "รางวัลและประวัติ" },
     { key: "highlights",       label: "ข้อมูลน่าสนใจ" },
-    { key: "awards",           label: "รางวัล / จุดเด่น" },
   ];
 
-  // Area / housing fields — comma-separated lists shown as chips.
   const AREA_FIELDS = [
-    { key: "nearby_places",   label: "สถานที่สำคัญใกล้เคียง" },
     { key: "teacher_housing", label: "บ้านพักครู" },
     { key: "rental_houses",   label: "หอพัก / บ้านเช่าในพื้นที่" },
   ];
 
+  const hasValue = (v) => Array.isArray(v) ? v.length > 0 : !!v;
+
   function hasAnyDetail(s) {
-    return DETAIL_FIELDS.some((f) => s[f.key]) || AREA_FIELDS.some((f) => s[f.key]);
+    return DETAIL_FIELDS.some((f) => hasValue(s[f.key])) || AREA_FIELDS.some((f) => hasValue(s[f.key]));
   }
 
-  function chipsHTML(text) {
-    if (!text) return "";
-    const items = Array.isArray(text)
-      ? text
-      : String(text).split(/,\s*/).map((s) => s.trim()).filter(Boolean);
-    return `<div class="chip-list">${items.map((it) => `<span class="chip">${esc(it)}</span>`).join("")}</div>`;
+  function valueHTML(v) {
+    if (Array.isArray(v)) {
+      return `<ul class="detail-list">${v.map((it) => `<li>${richText(it)}</li>`).join("")}</ul>`;
+    }
+    return richText(v);
   }
 
-  // Position number tag, e.g. "ตำแหน่งเลขที่ 27954".
-  const positionTag = (s) =>
-    `<span class="card-org-tag">${provinceDot(s.province)}ตำแหน่งเลขที่ ${esc(s.position_no)}</span>`;
-
-  function linksHTML(s) {
-    const links = [];
-    if (s.website)  links.push(`<a href="${esc(s.website)}" target="_blank" rel="noopener">เว็บไซต์ ↗</a>`);
-    if (s.facebook) links.push(`<a href="${esc(s.facebook)}" target="_blank" rel="noopener">Facebook ↗</a>`);
-    return links.join("");
-  }
-
-  // Build a compact summary card (Overview tab).
+  // Build a compact summary card (Overview tab): identity, the two numbers
+  // that matter most when choosing (students, distance), then programs.
   function overviewCardHTML(s, idx) {
-    const stats = [
-      { key: "student_count", label: "จำนวนนักเรียน" },
-      { key: "staff_count",   label: "จำนวนครู / บุคลากร" },
-    ];
-    const longFields = [
-      { key: "distance",         label: "ระยะทางจากตัวเมือง" },
-      { key: "special_programs", label: "ห้องเรียนพิเศษ / หลักสูตร" },
-      { key: "highlights",       label: "ข้อมูลน่าสนใจ" },
-    ];
-
-    const hasStats = stats.some((f) => s[f.key]);
-    const hasLong = longFields.some((f) => s[f.key]);
-
-    const statsHTML = hasStats ? `
-      <div class="card-section">
-        <div class="card-stats">
-          ${stats.map((f) => s[f.key]
-            ? `<div>
-                 <div class="card-label">${f.label}</div>
-                 <div class="card-stat-value">${esc(s[f.key])}</div>
-               </div>`
-            : `<div></div>`).join("")}
-        </div>
-      </div>` : "";
-
-    const longHTML = hasLong ? `
-      <div class="card-section">
-        ${longFields.filter((f) => s[f.key]).map((f) => `
-          <div>
-            <div class="card-label">${f.label}</div>
-            <div class="card-text">${esc(s[f.key])}</div>
-          </div>
-        `).join("")}
-      </div>` : "";
-
+    const meta = [locationText(s), s.size ? `ขนาด${s.size}` : "", levelsText(s)].filter(Boolean).join(" · ");
     return `
       <a href="#detail" class="overview-card" data-id="${s.id}" style="--d:${(idx * 0.05).toFixed(2)}s">
         <header class="card-head">
           <span class="card-seq">ที่ <strong>${seqDisplay(s)}</strong></span>
-          ${positionTag(s)}
+          <span class="card-org-tag">${provinceDot(s.province)}ตำแหน่งเลขที่ ${esc(s.position_no)}</span>
         </header>
-        <h3 class="card-name">${esc(s.name)}</h3>
-        <div class="card-org-name">${esc(locationText(s))}${s.size ? ` · ${esc(s.size)}` : ""}</div>
-        ${levelChips(s)}
-        ${statsHTML}
-        ${longHTML}
+        <div>
+          <h3 class="card-name">${esc(s.name)}</h3>
+          <div class="card-org-name mt-1">${esc(meta)}</div>
+        </div>
+        <div class="card-section">
+          <div class="card-stats">
+            <div>
+              <div class="card-label">นักเรียน</div>
+              <div class="card-stat-value">${esc(s.student_count)}</div>
+              ${s.students_asof ? `<div class="card-stat-note">ข้อมูล ${esc(s.students_asof)}</div>` : ""}
+            </div>
+            <div>
+              <div class="card-label">ระยะทาง</div>
+              <div class="card-stat-value">${esc(s.distance_short)}</div>
+              <div class="card-stat-note">${esc(s.distance_note)}</div>
+            </div>
+          </div>
+        </div>
+        ${s.special_programs ? `
+        <div class="card-section">
+          <div>
+            <div class="card-label">ห้องเรียนพิเศษ / หลักสูตร</div>
+            <div class="card-text">${richText(s.special_programs)}</div>
+          </div>
+        </div>` : ""}
       </a>
     `;
   }
 
   function detailPanelHTML(s) {
     const cells = DETAIL_FIELDS
-      .filter((f) => s[f.key])
+      .filter((f) => hasValue(s[f.key]))
       .map((f) => {
         const cls = f.style === "display" ? "detail-value display" : "detail-value";
+        const note = f.note && f.note(s);
         return `
           <div class="detail-field">
             <div class="detail-label">${f.label}</div>
-            <div class="${cls}">${esc(s[f.key])}</div>
+            <div class="${cls}">${valueHTML(s[f.key])}</div>
+            ${note ? `<div class="card-stat-note">${esc(note)}</div>` : ""}
           </div>
         `;
       }).join("");
 
-    let areaHTML = "";
     const areaCells = AREA_FIELDS
-      .filter((f) => s[f.key])
+      .filter((f) => hasValue(s[f.key]))
       .map((f) => `
         <div class="detail-field">
           <div class="detail-label">${f.label}</div>
-          ${chipsHTML(s[f.key])}
+          <div class="detail-value">${valueHTML(s[f.key])}</div>
         </div>
       `).join("");
-    if (areaCells) {
-      areaHTML = `
+    const areaHTML = areaCells ? `
         <div class="detail-section-divider">
-          <span class="detail-section-title">พื้นที่และที่พักใกล้เคียง</span>
+          <span class="detail-section-title">ที่พัก</span>
         </div>
         <div class="detail-grid">${areaCells}</div>
-      `;
-    }
+      ` : "";
 
-    // Inline back button — visible inside every expanded detail panel.
-    // When the user reached this row by clicking a card, it scrolls back
-    // to that exact card; otherwise it scrolls to the top of the overview.
+    const links = [
+      s.website ? extLink(s.website, "เว็บไซต์โรงเรียน") : "",
+      s.facebook ? extLink(s.facebook, "Facebook โรงเรียน") : "",
+    ].join("");
+    const linksBlock = `
+        <div class="detail-section-divider">
+          <span class="detail-section-title">ติดต่อและแหล่งอ้างอิง</span>
+        </div>
+        <div class="detail-grid">
+          ${links ? `<div class="detail-field"><div class="detail-label">ช่องทางติดต่อ</div><div class="src-list">${links}</div></div>` : ""}
+          <div class="detail-field"><div class="detail-label">แหล่งอ้างอิงข้อมูล</div>${sourcesList(s)}</div>
+        </div>`;
+
+    // Inline back button — when the user reached this row by clicking a
+    // card, it scrolls back to that card; otherwise to the top of overview.
     const backBtn = `
       <div class="detail-back-row">
         <button type="button" class="back-link back-link-inline" data-action="back-to-overview">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M19 12H5M12 19l-7-7 7-7"/>
           </svg>
           กลับไปหน้าภาพรวม
         </button>
       </div>
     `;
-
-    const links = linksHTML(s);
-    const linksBlock = links
-      ? `<div class="detail-section-divider">
-           <span class="detail-section-title">ช่องทางติดต่อโรงเรียน</span>
-         </div>
-         <div class="src-list">${links}</div>`
-      : "";
 
     return `<div class="detail-panel">
       <div class="detail-grid">${cells}</div>
@@ -254,33 +243,34 @@
   }
 
   const CHEVRON_SVG =
-    `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>`;
+    `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>`;
 
   function rowHTML(s, idx) {
     const expandable = hasAnyDetail(s);
     const toggle = expandable
-      ? `<button class="expand-toggle" type="button" aria-expanded="false" aria-label="ดูรายละเอียด">${CHEVRON_SVG}</button>`
+      ? `<button class="expand-toggle" type="button" aria-expanded="false" aria-label="ดูรายละเอียด${esc(s.name)}">${CHEVRON_SVG}</button>`
       : "";
     const main = `
       <tr class="row-main" data-id="${s.id}" data-expanded="false" style="--d:${(idx * 0.05).toFixed(2)}s">
         <td class="col-seq">
           <span class="seq-cell">${seqDisplay(s)}</span>
-          <div class="name-meta">เลขที่ ${esc(s.position_no)}</div>
+          <div class="name-meta num">เลขที่ ${esc(s.position_no)}</div>
         </td>
         <td>
           <div class="name-display">${esc(s.name)}</div>
-          <div class="name-meta">${provinceDot(s.province)} ${esc(locationText(s))}</div>
+          <div class="name-meta">${provinceDot(s.province)}${esc(locationText(s))}</div>
         </td>
         <td class="col-map">${mapThumb(s)}</td>
-        <td class="col-levels">${levelChips(s)}</td>
-        <td class="col-sources">${sourcesList(s)}</td>
+        <td class="col-facts">
+          <div class="facts">ขนาด${esc(s.size)} · ${esc(s.student_count)}<br />${esc(s.distance_short)} ${s.distance_short === "ในเมือง" ? "" : esc(s.distance_note.split(" · ")[0])}</div>
+        </td>
         <td class="col-expand text-center">${toggle}</td>
       </tr>
     `;
     if (!expandable) return main;
     return main + `
       <tr class="row-detail" data-id="${s.id}" hidden>
-        <td colspan="6">${detailPanelHTML(s)}</td>
+        <td colspan="5">${detailPanelHTML(s)}</td>
       </tr>
     `;
   }
@@ -288,14 +278,10 @@
   const state = {
     q: "",
     province: "all",     // "all" | "สุราษฎร์ธานี" | "ชุมพร"
-    levels: new Set(),   // toggleable subset of LEVEL_KEYS
   };
 
   function matches(s) {
     if (state.province !== "all" && s.province !== state.province) return false;
-    for (const lv of state.levels) {
-      if (!s[lv]) return false;
-    }
     if (state.q) {
       const hay = `${s.name} ${s.address || ""} ${s.amphoe || ""} ${s.province || ""} ${s.position_no || ""}`.toLowerCase();
       if (!hay.includes(state.q.toLowerCase())) return false;
@@ -364,7 +350,7 @@
         <div class="map-popup">
           <div class="popup-name">ที่ ${seqDisplay(s)} · ${esc(s.name)}</div>
           <div class="popup-org">${esc(locationText(s))} · เลขที่ ${esc(s.position_no)}</div>
-          <a href="#detail" class="popup-detail-btn" data-id="${s.id}">ดูรายละเอียด →</a>
+          <a href="#detail" class="popup-detail-btn" data-id="${s.id}">ดูรายละเอียด</a>
         </div>
       `);
       markerLayer.addLayer(m);
@@ -419,52 +405,48 @@
 
   // ── Ranking view ──────────────────────────────────────────────
   // Rankings are hand-curated content from rankings.js — render once on
-  // load, no filtering needed. Each card optionally links to the matching
-  // school in the Detail view via fuzzy name match (school_match field).
+  // load, no filtering needed. Each card links to its school (school_id).
 
   function findSchoolById(id) {
     return SCHOOLS.find((s) => s.id === id) || null;
   }
 
-  function starsHTML(n, max = 5) {
-    const filled = "★".repeat(n);
-    const empty  = "☆".repeat(max - n);
-    return `<span class="ranking-stars">${filled}</span><span class="ranking-stars-empty">${empty}</span>`;
+  // Fit rating as five short bars (drawn, not glyph stars).
+  function fitMeterHTML(n, max = 5) {
+    const bars = Array.from({ length: max }, (_, i) => `<i class="${i < n ? "on" : ""}"></i>`).join("");
+    return `<span class="fit-meter" role="img" aria-label="ความเหมาะสม ${n} จาก ${max}">${bars}</span>`;
   }
 
   function rankingCardHTML(r, idx) {
-    const isFeatured = r.medal != null;
+    const isFeatured = r.rank <= 3;
     const school = findSchoolById(r.school_id);
     if (!school) return "";
-    const levels = [school.lower_secondary && "ม.1–3", school.upper_secondary && "ม.4–6"]
-      .filter(Boolean).join(" / ");
-    const detailLink = school
-      ? `<a href="#detail" class="ranking-detail-link" data-action="ranking-jump" data-id="${school.id}">ดูรายละเอียดในตาราง →</a>`
-      : "";
+    const detailLink =
+      `<a href="#detail" class="ranking-detail-link" data-action="ranking-jump" data-id="${school.id}">ดูข้อมูลเต็มของโรงเรียนนี้</a>`;
     const prosHTML = r.pros.length
       ? `<div class="ranking-section">
            <div class="ranking-section-label">ข้อดี</div>
-           <ul class="ranking-list pros">${r.pros.map((p) => `<li>${esc(p)}</li>`).join("")}</ul>
+           <ul class="ranking-list pros">${r.pros.map((p) => `<li>${richText(p)}</li>`).join("")}</ul>
          </div>` : "";
     const consHTML = r.cons.length
       ? `<div class="ranking-section">
            <div class="ranking-section-label">ข้อเสีย</div>
-           <ul class="ranking-list cons">${r.cons.map((c) => `<li>${esc(c)}</li>`).join("")}</ul>
+           <ul class="ranking-list cons">${r.cons.map((c) => `<li>${richText(c)}</li>`).join("")}</ul>
          </div>` : "";
 
     return `
       <article class="ranking-card${isFeatured ? " featured" : ""}" style="--d:${(idx * 0.04).toFixed(2)}s">
         <header class="ranking-head">
-          <span class="ranking-label">${r.medal ? `<span class="ranking-medal">${r.medal}</span>` : ""}${esc(r.label)}</span>
+          <span class="ranking-label">อันดับ <span class="ranking-rank">${r.rank}</span></span>
           <span class="ranking-positions">ที่ <strong>${seqDisplay(school)}</strong> · เลขที่ ${esc(school.position_no)}</span>
         </header>
         <h3 class="ranking-school">${esc(school.name)}</h3>
         <div class="ranking-meta">
           <div class="ranking-meta-line">
-            <span>${esc(levels)}</span>·<span>${esc(locationText(school))}</span>${school.size ? `·<span>${esc(school.size)}</span>` : ""}
+            <span>${esc(locationText(school))}</span>·<span>ขนาด${esc(school.size)}</span>·<span>${esc(levelsText(school))}</span>·<span>${esc(school.distance_short === "ในเมือง" ? "ในเมือง" : school.distance_short + " " + school.distance_note.split(" · ")[0])}</span>
           </div>
-          ${r.verdict ? `<div class="ranking-meta-line"><strong>${esc(r.verdict)}</strong></div>` : ""}
-          <div class="ranking-meta-line">ความเหมาะสม ${starsHTML(r.stars)}</div>
+          ${r.verdict ? `<div class="ranking-meta-line verdict">${esc(r.verdict)}</div>` : ""}
+          <div class="ranking-meta-line">ความเหมาะสม ${fitMeterHTML(r.stars)} <span class="num">${r.stars}/5</span></div>
           ${detailLink}
         </div>
         ${prosHTML}
@@ -498,7 +480,7 @@
   }
 
   function setupRankingLinks() {
-    // "ดูรายละเอียดในตาราง →" inside a ranking card jumps to the matching
+    // The "ดูข้อมูลเต็ม" link inside a ranking card jumps to the matching
     // school's detail row (same behavior as clicking an overview card).
     const list = document.getElementById("rankings-list");
     if (!list) return;
@@ -527,20 +509,12 @@
     const wrap = document.getElementById("filters");
     if (!wrap) return;
     wrap.addEventListener("click", (e) => {
-      const btn = e.target.closest(".filter-pill");
+      const btn = e.target.closest(".filter-pill[data-province]");
       if (!btn) return;
-      if (btn.dataset.province) {
-        state.province = btn.dataset.province;
-        wrap.querySelectorAll("[data-province]").forEach((b) => {
-          b.setAttribute("aria-pressed", String(b === btn));
-        });
-      } else if (btn.dataset.level) {
-        const k = btn.dataset.level;
-        const pressed = btn.getAttribute("aria-pressed") === "true";
-        btn.setAttribute("aria-pressed", String(!pressed));
-        if (pressed) state.levels.delete(k);
-        else state.levels.add(k);
-      }
+      state.province = btn.dataset.province;
+      wrap.querySelectorAll("[data-province]").forEach((b) => {
+        b.setAttribute("aria-pressed", String(b === btn));
+      });
       render();
     });
   }
@@ -612,14 +586,10 @@
   function resetFiltersAndGoOverview() {
     state.q = "";
     state.province = "all";
-    state.levels.clear();
     const input = document.getElementById("q");
     if (input) input.value = "";
     document.querySelectorAll("[data-province]").forEach((b) =>
       b.setAttribute("aria-pressed", String(b.dataset.province === "all"))
-    );
-    document.querySelectorAll("[data-level]").forEach((b) =>
-      b.setAttribute("aria-pressed", "false")
     );
     if (location.hash !== "#overview") location.hash = "#overview";
     render();

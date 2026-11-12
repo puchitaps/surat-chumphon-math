@@ -19,3 +19,6 @@ Thumbs.db
 *.swp
 *.swo
 inspect_data.py
+
+# Local agent skills (impeccable, downloaded docs-only — not part of the site)
+.claude/
